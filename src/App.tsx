@@ -10,6 +10,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/app/Dashboard";
 import ComingSoon from "./pages/app/ComingSoon";
+import Categories from "./pages/app/Categories";
+import Menu from "./pages/app/Menu";
+import Tables from "./pages/app/Tables";
+import PublicMenu from "./pages/PublicMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,13 +28,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/m/:slug" element={<PublicMenu />} />
             <Route path="/app" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<ComingSoon title="Pedidos" desc="Gestión de pedidos en tiempo real." />} />
               <Route path="kitchen" element={<ComingSoon title="Cocina (KDS)" desc="Pantalla de comandas para cocina." />} />
-              <Route path="tables" element={<ComingSoon title="Mesas" desc="Mesas, QR y disponibilidad." />} />
-              <Route path="menu" element={<ComingSoon title="Menú" desc="Productos de tu carta." />} />
-              <Route path="categories" element={<ComingSoon title="Categorías" desc="Organizá tu menú." />} />
+              <Route path="tables" element={<Tables />} />
+              <Route path="menu" element={<Menu />} />
+              <Route path="categories" element={<Categories />} />
               <Route path="branches" element={<ComingSoon title="Sucursales" desc="Tus locales y direcciones." />} />
               <Route path="team" element={<ComingSoon title="Equipo" desc="Usuarios y roles." />} />
               <Route path="settings" element={<ComingSoon title="Configuración" desc="Datos del restaurante, facturación y conexiones." />} />
