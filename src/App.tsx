@@ -13,6 +13,8 @@ import ComingSoon from "./pages/app/ComingSoon";
 import Categories from "./pages/app/Categories";
 import Menu from "./pages/app/Menu";
 import Tables from "./pages/app/Tables";
+import Kitchen from "./pages/app/Kitchen";
+import Orders from "./pages/app/Orders";
 import PublicMenu from "./pages/PublicMenu";
 import NotFound from "./pages/NotFound";
 
