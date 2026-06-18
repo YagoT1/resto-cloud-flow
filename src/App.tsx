@@ -13,6 +13,8 @@ import ComingSoon from "./pages/app/ComingSoon";
 import Categories from "./pages/app/Categories";
 import Menu from "./pages/app/Menu";
 import Tables from "./pages/app/Tables";
+import Kitchen from "./pages/app/Kitchen";
+import Orders from "./pages/app/Orders";
 import PublicMenu from "./pages/PublicMenu";
 import NotFound from "./pages/NotFound";
 
@@ -31,8 +33,8 @@ const App = () => (
             <Route path="/m/:slug" element={<PublicMenu />} />
             <Route path="/app" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
-              <Route path="orders" element={<ComingSoon title="Pedidos" desc="Gestión de pedidos en tiempo real." />} />
-              <Route path="kitchen" element={<ComingSoon title="Cocina (KDS)" desc="Pantalla de comandas para cocina." />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="kitchen" element={<Kitchen />} />
               <Route path="tables" element={<Tables />} />
               <Route path="menu" element={<Menu />} />
               <Route path="categories" element={<Categories />} />
