@@ -1,7 +1,7 @@
 import { NavLink, Outlet, Link } from "react-router-dom";
 import {
   LayoutDashboard, UtensilsCrossed, Tags, Table2, ClipboardList,
-  ChefHat, Store, Users, Settings, LogOut, Utensils, Menu as MenuIcon, X
+  ChefHat, Store, Users, Settings, LogOut, Utensils, Menu as MenuIcon, X, BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const nav = [
   { to: "/app/categories", icon: Tags, label: "Categorías" },
   { to: "/app/branches", icon: Store, label: "Sucursales" },
   { to: "/app/team", icon: Users, label: "Equipo" },
+  { to: "/app/reports", icon: BarChart3, label: "Reportes" },
   { to: "/app/settings", icon: Settings, label: "Configuración" },
 ];
 

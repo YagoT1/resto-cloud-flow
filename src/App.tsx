@@ -15,6 +15,10 @@ import Menu from "./pages/app/Menu";
 import Tables from "./pages/app/Tables";
 import Kitchen from "./pages/app/Kitchen";
 import Orders from "./pages/app/Orders";
+import Branches from "./pages/app/Branches";
+import Team from "./pages/app/Team";
+import Settings from "./pages/app/Settings";
+import Reports from "./pages/app/Reports";
 import PublicMenu from "./pages/PublicMenu";
 import NotFound from "./pages/NotFound";
 
@@ -38,9 +42,10 @@ const App = () => (
               <Route path="tables" element={<Tables />} />
               <Route path="menu" element={<Menu />} />
               <Route path="categories" element={<Categories />} />
-              <Route path="branches" element={<ComingSoon title="Sucursales" desc="Tus locales y direcciones." />} />
-              <Route path="team" element={<ComingSoon title="Equipo" desc="Usuarios y roles." />} />
-              <Route path="settings" element={<ComingSoon title="Configuración" desc="Datos del restaurante, facturación y conexiones." />} />
+              <Route path="branches" element={<Branches />} />
+              <Route path="team" element={<Team />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
