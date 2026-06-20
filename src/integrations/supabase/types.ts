@@ -58,6 +58,75 @@ export type Database = {
           },
         ]
       }
+      cash_sessions: {
+        Row: {
+          branch_id: string
+          closed_at: string | null
+          closed_by: string | null
+          closing_amount: number | null
+          created_at: string
+          difference: number | null
+          expected_cash: number | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_amount: number
+          restaurant_id: string
+          status: Database["public"]["Enums"]["cash_session_status"]
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          difference?: number | null
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_amount?: number
+          restaurant_id: string
+          status?: Database["public"]["Enums"]["cash_session_status"]
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          difference?: number | null
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_amount?: number
+          restaurant_id?: string
+          status?: Database["public"]["Enums"]["cash_session_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_sessions_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           active: boolean
@@ -219,6 +288,89 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          branch_id: string
+          cash_session_id: string | null
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes: string | null
+          order_id: string | null
+          reference: string | null
+          restaurant_id: string
+          status: Database["public"]["Enums"]["payment_status"]
+          tip: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          branch_id: string
+          cash_session_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_id?: string | null
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          order_id?: string | null
+          reference?: string | null
+          restaurant_id: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tip?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          branch_id?: string
+          cash_session_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_id?: string | null
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          order_id?: string | null
+          reference?: string | null
+          restaurant_id?: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tip?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_cash_session_id_fkey"
+            columns: ["cash_session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
@@ -449,6 +601,36 @@ export type Database = {
         Args: { _restaurant_id: string; _user_id: string }
         Returns: boolean
       }
+      close_cash_session: {
+        Args: {
+          p_closing_amount: number
+          p_notes?: string
+          p_session_id: string
+        }
+        Returns: {
+          branch_id: string
+          closed_at: string | null
+          closed_by: string | null
+          closing_amount: number | null
+          created_at: string
+          difference: number | null
+          expected_cash: number | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_amount: number
+          restaurant_id: string
+          status: Database["public"]["Enums"]["cash_session_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cash_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_public_order: {
         Args: {
           p_customer_name: string
@@ -485,6 +667,7 @@ export type Database = {
         | "kitchen"
         | "cashier"
         | "customer"
+      cash_session_status: "open" | "closed"
       order_status:
         | "pending"
         | "confirmed"
@@ -494,6 +677,20 @@ export type Database = {
         | "cancelled"
         | "paid"
       order_type: "dine_in" | "takeaway" | "delivery"
+      payment_method:
+        | "cash"
+        | "debit"
+        | "credit"
+        | "transfer"
+        | "mercadopago"
+        | "qr"
+        | "other"
+      payment_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "refunded"
+        | "cancelled"
       restaurant_status: "active" | "suspended" | "cancelled"
       subscription_plan: "trial" | "basic" | "pro" | "enterprise"
       table_status: "available" | "occupied" | "reserved" | "cleaning"
@@ -632,6 +829,7 @@ export const Constants = {
         "cashier",
         "customer",
       ],
+      cash_session_status: ["open", "closed"],
       order_status: [
         "pending",
         "confirmed",
@@ -642,6 +840,22 @@ export const Constants = {
         "paid",
       ],
       order_type: ["dine_in", "takeaway", "delivery"],
+      payment_method: [
+        "cash",
+        "debit",
+        "credit",
+        "transfer",
+        "mercadopago",
+        "qr",
+        "other",
+      ],
+      payment_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "refunded",
+        "cancelled",
+      ],
       restaurant_status: ["active", "suspended", "cancelled"],
       subscription_plan: ["trial", "basic", "pro", "enterprise"],
       table_status: ["available", "occupied", "reserved", "cleaning"],
