@@ -48,12 +48,22 @@ const statusLabel: Record<Status, string> = {
   ready: "Listo", delivered: "Entregado", paid: "Pagado", cancelled: "Cancelado",
 };
 
+type Method = "cash" | "debit" | "credit" | "transfer" | "mercadopago" | "qr" | "other";
+const methodLabel: Record<Method, string> = {
+  cash: "Efectivo", debit: "Débito", credit: "Crédito",
+  transfer: "Transferencia", mercadopago: "Mercado Pago", qr: "QR", other: "Otro",
+};
+
 export default function Orders() {
-  const { profile } = useAuth();
+  const { profile, user, roles } = useAuth();
+  const canCharge = roles.includes("owner") || roles.includes("manager") || roles.includes("cashier");
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Record<string, Item[]>>({});
   const [tables, setTables] = useState<Record<string, string>>({});
+  const [restaurantName, setRestaurantName] = useState("");
   const [filter, setFilter] = useState<Status | "all">("all");
+  const [payOrder, setPayOrder] = useState<Order | null>(null);
+  const [payForm, setPayForm] = useState({ method: "cash" as Method, amount: "", tip: "0", reference: "" });
 
   const load = useCallback(async () => {
     if (!profile?.restaurant_id) return;
@@ -78,6 +88,9 @@ export default function Orders() {
     const tm: Record<string, string> = {};
     (ts ?? []).forEach((t) => { tm[(t as { id: string; number: string }).id] = (t as { id: string; number: string }).number });
     setTables(tm);
+    const { data: r } = await supabase.from("restaurants").select("name")
+      .eq("id", profile.restaurant_id).maybeSingle();
+    if (r) setRestaurantName((r as { name: string }).name);
   }, [profile?.restaurant_id, filter]);
 
   useEffect(() => { load(); }, [load]);
@@ -97,6 +110,59 @@ export default function Orders() {
     const { error } = await supabase.from("orders").update({ status: s }).eq("id", id);
     if (error) toast.error(error.message);
     else load();
+  };
+
+  const openPay = (o: Order) => {
+    setPayOrder(o);
+    setPayForm({ method: "cash", amount: String(o.total), tip: "0", reference: "" });
+  };
+
+  const confirmPay = async () => {
+    if (!payOrder || !profile?.restaurant_id || !user) return;
+    // Find open cash session on the order's branch
+    const { data: branch } = await supabase.from("orders").select("branch_id")
+      .eq("id", payOrder.id).maybeSingle();
+    const branchId = (branch as { branch_id: string } | null)?.branch_id;
+    if (!branchId) return toast.error("Sin sucursal asignada");
+    const { data: s } = await supabase.from("cash_sessions").select("id")
+      .eq("branch_id", branchId).eq("status", "open").maybeSingle();
+    if (!s) return toast.error("Abrí un turno de caja antes de cobrar");
+    const amount = Number(payForm.amount);
+    if (!amount || amount <= 0) return toast.error("Monto inválido");
+
+    const { error } = await supabase.from("payments").insert({
+      restaurant_id: profile.restaurant_id,
+      branch_id: branchId,
+      order_id: payOrder.id,
+      cash_session_id: (s as { id: string }).id,
+      method: payForm.method,
+      amount,
+      tip: Number(payForm.tip) || 0,
+      reference: payForm.reference || null,
+      status: "approved",
+      created_by: user.id,
+    });
+    if (error) return toast.error(error.message);
+    await supabase.from("orders").update({ status: "paid" }).eq("id", payOrder.id);
+    toast.success("Cobro registrado");
+    setPayOrder(null);
+    load();
+  };
+
+  const printTicket = (o: Order) => {
+    downloadTicketPdf({
+      restaurantName: restaurantName || "Restaurante",
+      orderNumber: o.order_number,
+      createdAt: o.created_at,
+      tableNumber: o.table_id ? tables[o.table_id] ?? null : null,
+      customerName: o.customer_name,
+      notes: o.notes,
+      items: (items[o.id] ?? []).map((i) => ({
+        product_name: i.product_name, quantity: i.quantity, unit_price: Number(i.unit_price),
+      })),
+      subtotal: Number(o.total),
+      total: Number(o.total),
+    });
   };
 
   return (
