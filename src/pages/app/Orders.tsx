@@ -230,9 +230,60 @@ export default function Orders() {
               ))}
             </ul>
             {o.notes && <div className="mt-2 rounded-md bg-muted/60 p-2 text-xs italic text-muted-foreground">“{o.notes}”</div>}
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => printTicket(o)}>
+                <Printer className="h-4 w-4" /> Ticket PDF
+              </Button>
+              {canCharge && o.status !== "paid" && o.status !== "cancelled" && (
+                <Button size="sm" onClick={() => openPay(o)}>
+                  <CreditCard className="h-4 w-4" /> Cobrar
+                </Button>
+              )}
+            </div>
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!payOrder} onOpenChange={(o) => !o && setPayOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cobrar pedido #{payOrder?.order_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Método</Label>
+              <Select value={payForm.method} onValueChange={(v: Method) => setPayForm({ ...payForm, method: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(methodLabel) as Method[]).map((m) =>
+                    <SelectItem key={m} value={m}>{methodLabel[m]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Monto</Label>
+                <Input type="number" inputMode="decimal" value={payForm.amount}
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Propina</Label>
+                <Input type="number" inputMode="decimal" value={payForm.tip}
+                  onChange={(e) => setPayForm({ ...payForm, tip: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Referencia</Label>
+              <Input value={payForm.reference}
+                onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayOrder(null)}>Cancelar</Button>
+            <Button onClick={confirmPay}>Registrar cobro</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
