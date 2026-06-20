@@ -13,6 +13,7 @@ import ComingSoon from "./pages/app/ComingSoon";
 import Categories from "./pages/app/Categories";
 import Menu from "./pages/app/Menu";
 import Tables from "./pages/app/Tables";
+import Cash from "./pages/app/Cash";
 import Kitchen from "./pages/app/Kitchen";
 import Orders from "./pages/app/Orders";
 import Branches from "./pages/app/Branches";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="orders" element={<Orders />} />
               <Route path="kitchen" element={<Kitchen />} />
               <Route path="tables" element={<Tables />} />
+              <Route path="cash" element={<Cash />} />
               <Route path="menu" element={<Menu />} />
               <Route path="categories" element={<Categories />} />
               <Route path="branches" element={<Branches />} />
