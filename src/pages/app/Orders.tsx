@@ -3,11 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, Clock } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { ClipboardList, Clock, Printer, CreditCard } from "lucide-react";
 import { toast } from "sonner";
+import { downloadTicketPdf } from "@/lib/printTicket";
 
 type Status = "pending" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled" | "paid";
 
