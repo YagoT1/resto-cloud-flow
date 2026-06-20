@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            urlPattern: ({ url }) => url.origin === self.location.origin && /\.(?:js|css|woff2?)$/.test(url.pathname),
+            urlPattern: ({ url }) => /\.(?:js|css|woff2?)$/.test(url.pathname),
             handler: "CacheFirst",
             options: {
               cacheName: "static-assets",
