@@ -278,7 +278,7 @@ export default function PublicMenu() {
                 </div>
 
                 <SheetFooter className="mt-4">
-                  <Button className="w-full" size="lg" disabled={placing || !branchId} onClick={placeOrder}>
+                  <Button className="w-full" size="lg" disabled={placing} onClick={placeOrder}>
                     {placing ? "Enviando..." : "Enviar pedido"}
                   </Button>
                 </SheetFooter>
