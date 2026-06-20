@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "anyone can insert restaurant on signup" ON public.restaurants;

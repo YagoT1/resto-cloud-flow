@@ -449,6 +449,20 @@ export type Database = {
         Args: { _restaurant_id: string; _user_id: string }
         Returns: boolean
       }
+      create_public_order: {
+        Args: {
+          p_customer_name: string
+          p_customer_phone: string
+          p_items: Json
+          p_notes: string
+          p_slug: string
+          p_table_number: string
+        }
+        Returns: {
+          order_id: string
+          order_number: number
+        }[]
+      }
       current_restaurant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
