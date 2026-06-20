@@ -100,39 +100,23 @@ export default function PublicMenu() {
   const total = cart.reduce((s, x) => s + x.qty * Number(x.product.price), 0);
 
   const placeOrder = async () => {
-    if (!restaurant || !branchId || cart.length === 0) return;
+    if (!restaurant || cart.length === 0 || !slug) return;
     setPlacing(true);
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        restaurant_id: restaurant.id,
-        branch_id: branchId,
-        table_id: tableId,
-        type: tableId ? "dine_in" : "takeaway",
-        status: "pending",
-        customer_name: customer.name || null,
-        customer_phone: customer.phone || null,
-        notes: customer.notes || null,
-        subtotal: total,
-        total: total,
-      })
-      .select("id, order_number")
-      .single();
-    if (error || !order) {
-      setPlacing(false);
-      return toast.error(error?.message ?? "No se pudo crear el pedido");
-    }
-    const items = cart.map((x) => ({
-      order_id: order.id,
-      product_id: x.product.id,
-      product_name: x.product.name,
-      quantity: x.qty,
-      unit_price: x.product.price,
-    }));
-    const { error: e2 } = await supabase.from("order_items").insert(items);
+    const { data, error } = await supabase.rpc("create_public_order", {
+      p_slug: slug,
+      p_table_number: mesa ?? null,
+      p_customer_name: customer.name || null,
+      p_customer_phone: customer.phone || null,
+      p_notes: customer.notes || null,
+      p_items: cart.map((x) => ({
+        product_id: x.product.id,
+        quantity: x.qty,
+      })),
+    });
     setPlacing(false);
-    if (e2) return toast.error(e2.message);
-    setPlacedNumber(order.order_number);
+    if (error) return toast.error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    setPlacedNumber(row?.order_number ?? null);
     setCart([]);
     setCustomer({ name: "", phone: "", notes: "" });
     setCartOpen(false);
