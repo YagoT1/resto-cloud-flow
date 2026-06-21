@@ -222,6 +222,9 @@ export default function Orders() {
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[o.status]}`}>
                     {statusLabel[o.status]}
                   </span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${payColor[o.payment_status]}`}>
+                    {payLabel[o.payment_status]}
+                  </span>
                   {o.table_id ? (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                       Mesa {tables[o.table_id] ?? "?"}
