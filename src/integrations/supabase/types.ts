@@ -226,6 +226,7 @@ export type Database = {
           id: string
           notes: string | null
           order_number: number
+          payment_status: Database["public"]["Enums"]["order_payment_status"]
           restaurant_id: string
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -243,6 +244,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: number
+          payment_status?: Database["public"]["Enums"]["order_payment_status"]
           restaurant_id: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -260,6 +262,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: number
+          payment_status?: Database["public"]["Enums"]["order_payment_status"]
           restaurant_id?: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -668,6 +671,12 @@ export type Database = {
         | "cashier"
         | "customer"
       cash_session_status: "open" | "closed"
+      order_payment_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "refunded"
+        | "cancelled"
       order_status:
         | "pending"
         | "confirmed"
@@ -830,6 +839,13 @@ export const Constants = {
         "customer",
       ],
       cash_session_status: ["open", "closed"],
+      order_payment_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "refunded",
+        "cancelled",
+      ],
       order_status: [
         "pending",
         "confirmed",
