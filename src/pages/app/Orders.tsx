@@ -11,7 +11,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { ClipboardList, Clock, Printer, CreditCard } from "lucide-react";
+import { ClipboardList, Clock, Printer, CreditCard, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { downloadTicketPdf } from "@/lib/printTicket";
 
@@ -165,6 +165,20 @@ export default function Orders() {
     });
   };
 
+  const payWithMP = async (o: Order) => {
+    const t = toast.loading("Generando link de Mercado Pago...");
+    const { data, error } = await supabase.functions.invoke("mp-create-preference", {
+      body: { order_id: o.id },
+    });
+    toast.dismiss(t);
+    if (error) return toast.error(error.message);
+    const url = (data as { init_point?: string; sandbox_init_point?: string })?.init_point
+      ?? (data as { sandbox_init_point?: string })?.sandbox_init_point;
+    if (!url) return toast.error("No se pudo generar el link");
+    window.open(url, "_blank", "noopener");
+    toast.success("Link abierto. El pago se confirmará automáticamente.");
+  };
+
   return (
     <div className="container py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -235,9 +249,14 @@ export default function Orders() {
                 <Printer className="h-4 w-4" /> Ticket PDF
               </Button>
               {canCharge && o.status !== "paid" && o.status !== "cancelled" && (
-                <Button size="sm" onClick={() => openPay(o)}>
-                  <CreditCard className="h-4 w-4" /> Cobrar
-                </Button>
+                <>
+                  <Button size="sm" variant="outline" onClick={() => payWithMP(o)}>
+                    <QrCode className="h-4 w-4" /> Mercado Pago
+                  </Button>
+                  <Button size="sm" onClick={() => openPay(o)}>
+                    <CreditCard className="h-4 w-4" /> Cobrar
+                  </Button>
+                </>
               )}
             </div>
           </Card>
