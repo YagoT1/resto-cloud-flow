@@ -156,7 +156,7 @@ export default function Orders() {
       created_by: user.id,
     });
     if (error) return toast.error(error.message);
-    await supabase.from("orders").update({ status: "paid" }).eq("id", payOrder.id);
+    await supabase.from("orders").update({ status: "paid", payment_status: "approved" }).eq("id", payOrder.id);
     toast.success("Cobro registrado");
     setPayOrder(null);
     load();
