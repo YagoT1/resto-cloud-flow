@@ -84,9 +84,12 @@ Deno.serve(async (req) => {
       notes: `MP ${payment.status}${payment.status_detail ? ` · ${payment.status_detail}` : ""}`,
     });
 
+    // Update order payment_status, and order status to paid only when approved
+    const orderPatch: Record<string, string> = { payment_status: status };
     if (status === "approved" && order.status !== "paid") {
-      await admin.from("orders").update({ status: "paid" }).eq("id", order.id);
+      orderPatch.status = "paid";
     }
+    await admin.from("orders").update(orderPatch).eq("id", order.id);
 
     return json({ ok: true });
   } catch (e) {

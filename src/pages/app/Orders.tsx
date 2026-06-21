@@ -16,11 +16,12 @@ import { toast } from "sonner";
 import { downloadTicketPdf } from "@/lib/printTicket";
 
 type Status = "pending" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled" | "paid";
+type PayStatus = "pending" | "approved" | "rejected" | "refunded" | "cancelled";
 
 interface Order {
   id: string; order_number: number; status: Status; type: string;
   table_id: string | null; customer_name: string | null; notes: string | null;
-  created_at: string; total: number;
+  created_at: string; total: number; payment_status: PayStatus;
 }
 interface Item { id: string; order_id: string; product_name: string; quantity: number; unit_price: number }
 
@@ -46,6 +47,18 @@ const statusColor: Record<Status, string> = {
 const statusLabel: Record<Status, string> = {
   pending: "Pendiente", confirmed: "Confirmado", preparing: "En cocina",
   ready: "Listo", delivered: "Entregado", paid: "Pagado", cancelled: "Cancelado",
+};
+
+const payColor: Record<PayStatus, string> = {
+  pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  approved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  rejected: "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  refunded: "bg-slate-500/10 text-slate-700 dark:text-slate-400",
+  cancelled: "bg-slate-500/10 text-slate-700 dark:text-slate-400",
+};
+const payLabel: Record<PayStatus, string> = {
+  pending: "Pago pendiente", approved: "Pago aprobado", rejected: "Pago rechazado",
+  refunded: "Reembolsado", cancelled: "Pago cancelado",
 };
 
 type Method = "cash" | "debit" | "credit" | "transfer" | "mercadopago" | "qr" | "other";
