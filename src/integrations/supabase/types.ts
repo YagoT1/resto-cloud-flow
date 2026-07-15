@@ -168,6 +168,44 @@ export type Database = {
           },
         ]
       }
+      mp_webhook_events: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string | null
+          payment_id: string
+          raw: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          payment_id: string
+          raw?: Json | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          payment_id?: string
+          raw?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_webhook_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string

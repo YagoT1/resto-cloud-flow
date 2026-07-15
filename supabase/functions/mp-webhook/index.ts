@@ -44,23 +44,32 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const mpRef = String(payment.id);
+    const status = payment.status === "approved" ? "approved"
+      : payment.status === "rejected" ? "rejected"
+      : payment.status === "refunded" ? "refunded"
+      : "pending";
+
+    // Idempotency guard #1: dedicated event log keyed by MP payment_id.
+    // First writer wins; duplicate deliveries short-circuit here.
+    const { error: evtErr } = await admin
+      .from("mp_webhook_events")
+      .insert({ payment_id: mpRef, order_id: orderId, status, raw: payment });
+    if (evtErr) {
+      // 23505 = unique_violation → already processed
+      if ((evtErr as { code?: string }).code === "23505") {
+        return json({ ok: true, already: true });
+      }
+      console.error("event log insert error", evtErr);
+      return json({ error: "event log error" }, 500);
+    }
+
     const { data: order } = await admin
       .from("orders")
       .select("id, restaurant_id, branch_id, status, total")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) return json({ ok: true, ignored: true });
-
-    // Idempotency: don't insert same MP payment twice
-    const mpRef = String(payment.id);
-    const { data: existing } = await admin
-      .from("payments").select("id").eq("reference", mpRef).maybeSingle();
-    if (existing) return json({ ok: true, already: true });
-
-    const status = payment.status === "approved" ? "approved"
-      : payment.status === "rejected" ? "rejected"
-      : payment.status === "refunded" ? "refunded"
-      : "pending";
 
     // Find an open cash session on the order's branch (optional link)
     let cashSessionId: string | null = null;
@@ -71,7 +80,8 @@ Deno.serve(async (req) => {
       cashSessionId = s?.id ?? null;
     }
 
-    await admin.from("payments").insert({
+    // Idempotency guard #2: upsert on (method, reference) unique index.
+    await admin.from("payments").upsert({
       restaurant_id: order.restaurant_id,
       branch_id: order.branch_id,
       order_id: order.id,
@@ -82,7 +92,7 @@ Deno.serve(async (req) => {
       reference: mpRef,
       status,
       notes: `MP ${payment.status}${payment.status_detail ? ` · ${payment.status_detail}` : ""}`,
-    });
+    }, { onConflict: "method,reference" });
 
     // Update order payment_status, and order status to paid only when approved
     const orderPatch: Record<string, string> = { payment_status: status };
