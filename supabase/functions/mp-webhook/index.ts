@@ -6,17 +6,69 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+async function verifyMpSignature(req: Request, rawBody: string, dataId: string | null): Promise<boolean> {
+  const secret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+  if (!secret) {
+    console.error("MERCADOPAGO_WEBHOOK_SECRET not configured");
+    return false;
+  }
+  const sigHeader = req.headers.get("x-signature");
+  const requestId = req.headers.get("x-request-id");
+  if (!sigHeader || !requestId) return false;
+
+  // x-signature: "ts=1704067200,v1=abcdef..."
+  const parts = Object.fromEntries(
+    sigHeader.split(",").map((p) => {
+      const [k, ...v] = p.trim().split("=");
+      return [k, v.join("=")];
+    }),
+  );
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) return false;
+
+  // Manifest per MP docs: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+  // Fall back to raw body if data.id missing (some notification types).
+  const manifest = dataId
+    ? `id:${dataId};request-id:${requestId};ts:${ts};`
+    : `request-id:${requestId};ts:${ts};${rawBody}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
+  const computed = Array.from(new Uint8Array(sigBuf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (computed.length !== v1.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ v1.charCodeAt(i);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const url = new URL(req.url);
-    const body = await req.json().catch(() => ({}));
+    const rawBody = await req.text();
+    const body = rawBody ? JSON.parse(rawBody) : {};
 
     // MP sends either { type, data: { id } } or query params (?type=payment&data.id=...)
     const type = body?.type ?? body?.action?.split(".")[0] ?? url.searchParams.get("type");
     const paymentId =
       body?.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id");
+
+    // Verify HMAC signature before doing anything else
+    const ok = await verifyMpSignature(req, rawBody, paymentId ? String(paymentId) : null);
+    if (!ok) {
+      return json({ error: "Invalid signature" }, 401);
+    }
 
     if (type !== "payment" || !paymentId) {
       return json({ ok: true, ignored: true });
