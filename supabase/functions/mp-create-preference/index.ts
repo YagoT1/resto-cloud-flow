@@ -94,8 +94,8 @@ Deno.serve(async (req) => {
       sandbox_init_point: mpData.sandbox_init_point,
     });
   } catch (e) {
-    console.error(e);
-    return json({ error: (e as Error).message }, 500);
+    console.error("Unhandled error", e);
+    return json({ error: "Internal server error" }, 500);
   }
 });
 
