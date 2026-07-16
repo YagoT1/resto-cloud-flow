@@ -21,6 +21,7 @@ import Team from "./pages/app/Team";
 import Settings from "./pages/app/Settings";
 import Reports from "./pages/app/Reports";
 import PublicMenu from "./pages/PublicMenu";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/m/:slug" element={<PublicMenu />} />
+
             <Route path="/app" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<Orders />} />
