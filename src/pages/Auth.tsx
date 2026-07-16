@@ -21,7 +21,16 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [restaurantName, setRestaurantName] = useState("");
 
-  useEffect(() => { if (user) navigate("/app", { replace: true }); }, [user, navigate]);
+  // Preserve `?next=` so OAuth consent (and any other flow) returns to the exact URL.
+  const rawNext = params.get("next");
+  const safeNext =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+  const redirectTarget = safeNext ?? "/app";
+  const absoluteRedirect = `${window.location.origin}${redirectTarget}`;
+
+  useEffect(() => {
+    if (user) navigate(redirectTarget, { replace: true });
+  }, [user, navigate, redirectTarget]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +40,7 @@ export default function Auth() {
         const { error } = await supabase.auth.signUp({
           email, password,
           options: {
-            emailRedirectTo: `${window.location.origin}/app`,
+            emailRedirectTo: absoluteRedirect,
             data: { full_name: fullName, restaurant_name: restaurantName },
           },
         });
@@ -53,9 +62,10 @@ export default function Auth() {
   const signInGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/app` },
+      options: { redirectTo: absoluteRedirect },
     });
   };
+
 
   return (
     <div className="flex min-h-screen bg-background">
