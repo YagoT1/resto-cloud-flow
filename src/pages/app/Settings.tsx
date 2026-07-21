@@ -24,7 +24,22 @@ export default function Settings() {
   const [restoForm, setRestoForm] = useState({ name: "", logo_url: "" });
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
   const [saving, setSaving] = useState(false);
+  const [mpStatus, setMpStatus] = useState<{
+    webhook_url: string;
+    webhook_secret_configured: boolean;
+    access_token_configured: boolean;
+    signature_self_test: boolean;
+  } | null>(null);
+  const [mpLoading, setMpLoading] = useState(false);
   const canManage = roles.includes("owner") || roles.includes("manager");
+
+  const loadMpStatus = async () => {
+    setMpLoading(true);
+    const { data, error } = await supabase.functions.invoke("mp-webhook-status");
+    setMpLoading(false);
+    if (error) return toast.error("No se pudo consultar el estado de Mercado Pago");
+    setMpStatus(data as typeof mpStatus);
+  };
 
   const load = async () => {
     if (!profile?.restaurant_id) return;
