@@ -245,6 +245,85 @@ export default function Settings() {
               <RefreshCw className={`h-4 w-4 ${mpLoading ? "animate-spin" : ""}`} /> Revalidar
             </Button>
           </div>
+
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-3 flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Reemplazar clave secreta</h3>
+              {mpStatus?.webhook_secret_source && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  Fuente actual:{" "}
+                  {mpStatus.webhook_secret_source === "per_restaurant" ? "por restaurante" : "global"}
+                  {mpStatus.per_restaurant_updated_at && mpStatus.webhook_secret_source === "per_restaurant" && (
+                    <> · {new Date(mpStatus.per_restaurant_updated_at).toLocaleString()}</>
+                  )}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Generá una nueva clave en el panel de Mercado Pago y pegala acá. Se guarda cifrada con
+              AES-GCM en la base y se registra en auditoría. Nunca la mostramos de vuelta.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Nueva clave</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={rotateForm.secret}
+                  onChange={(e) => setRotateForm({ ...rotateForm, secret: e.target.value })}
+                  placeholder="Mín. 16 caracteres"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirmar clave</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={rotateForm.confirm}
+                  onChange={(e) => setRotateForm({ ...rotateForm, confirm: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Motivo (opcional)</Label>
+                <Input
+                  value={rotateForm.note}
+                  maxLength={500}
+                  placeholder="Ej: rotación trimestral"
+                  onChange={(e) => setRotateForm({ ...rotateForm, note: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={rotateSecret} disabled={rotating || !rotateForm.secret}>
+                <KeyRound className="h-4 w-4" /> Rotar clave
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-3 flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Historial de rotaciones</h3>
+            </div>
+            {rotations.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aún no hay rotaciones registradas.</p>
+            ) : (
+              <div className="space-y-2">
+                {rotations.map((row) => (
+                  <div key={row.id} className="flex items-start justify-between rounded-lg border bg-muted/30 p-3 text-sm">
+                    <div>
+                      <div className="font-medium">{new Date(row.created_at).toLocaleString()}</div>
+                      {row.note && <div className="text-xs text-muted-foreground">{row.note}</div>}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {row.rotated_by === user?.id ? "vos" : row.rotated_by.slice(0, 8)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
