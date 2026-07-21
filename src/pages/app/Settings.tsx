@@ -55,6 +55,7 @@ export default function Settings() {
   };
 
   useEffect(() => { if (profile && user) load(); /* eslint-disable-next-line */ }, [profile?.restaurant_id, user?.id]);
+  useEffect(() => { if (canManage) loadMpStatus(); /* eslint-disable-next-line */ }, [canManage]);
 
   const saveRestaurant = async () => {
     if (!r) return;
