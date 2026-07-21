@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Save, ExternalLink, Building2, User as UserIcon, Link2, Copy, CheckCircle2, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { Save, ExternalLink, Building2, User as UserIcon, Link2, Copy, CheckCircle2, XCircle, RefreshCw, ShieldCheck, KeyRound, History } from "lucide-react";
 import { toast } from "sonner";
 
 interface Restaurant {
@@ -27,10 +27,18 @@ export default function Settings() {
   const [mpStatus, setMpStatus] = useState<{
     webhook_url: string;
     webhook_secret_configured: boolean;
+    webhook_secret_source: "per_restaurant" | "env" | null;
+    per_restaurant_updated_at: string | null;
     access_token_configured: boolean;
     signature_self_test: boolean;
   } | null>(null);
   const [mpLoading, setMpLoading] = useState(false);
+  const [rotateForm, setRotateForm] = useState({ secret: "", confirm: "", note: "" });
+  const [rotating, setRotating] = useState(false);
+  const [rotations, setRotations] = useState<Array<{
+    id: string; created_at: string; note: string | null; rotated_by: string;
+    profiles?: { full_name: string | null; email: string | null } | null;
+  }>>([]);
   const canManage = roles.includes("owner") || roles.includes("manager");
 
   const loadMpStatus = async () => {
@@ -39,6 +47,36 @@ export default function Settings() {
     setMpLoading(false);
     if (error) return toast.error("No se pudo consultar el estado de Mercado Pago");
     setMpStatus(data as typeof mpStatus);
+  };
+
+  const loadRotations = async () => {
+    if (!profile?.restaurant_id) return;
+    const { data } = await supabase
+      .from("mp_secret_rotations")
+      .select("id, created_at, note, rotated_by")
+      .eq("restaurant_id", profile.restaurant_id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setRotations(data ?? []);
+  };
+
+  const rotateSecret = async () => {
+    if (rotateForm.secret.length < 16) {
+      return toast.error("La clave debe tener al menos 16 caracteres");
+    }
+    if (rotateForm.secret !== rotateForm.confirm) {
+      return toast.error("Las claves no coinciden");
+    }
+    setRotating(true);
+    const { error } = await supabase.functions.invoke("mp-set-webhook-secret", {
+      body: { secret: rotateForm.secret, note: rotateForm.note || null },
+    });
+    setRotating(false);
+    if (error) return toast.error("No se pudo rotar la clave");
+    toast.success("Clave actualizada correctamente");
+    setRotateForm({ secret: "", confirm: "", note: "" });
+    loadMpStatus();
+    loadRotations();
   };
 
   const load = async () => {
@@ -55,7 +93,7 @@ export default function Settings() {
   };
 
   useEffect(() => { if (profile && user) load(); /* eslint-disable-next-line */ }, [profile?.restaurant_id, user?.id]);
-  useEffect(() => { if (canManage) loadMpStatus(); /* eslint-disable-next-line */ }, [canManage]);
+  useEffect(() => { if (canManage) { loadMpStatus(); loadRotations(); } /* eslint-disable-next-line */ }, [canManage, profile?.restaurant_id]);
 
   const saveRestaurant = async () => {
     if (!r) return;
@@ -206,6 +244,85 @@ export default function Settings() {
             <Button variant="ghost" size="sm" onClick={loadMpStatus} disabled={mpLoading}>
               <RefreshCw className={`h-4 w-4 ${mpLoading ? "animate-spin" : ""}`} /> Revalidar
             </Button>
+          </div>
+
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-3 flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Reemplazar clave secreta</h3>
+              {mpStatus?.webhook_secret_source && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  Fuente actual:{" "}
+                  {mpStatus.webhook_secret_source === "per_restaurant" ? "por restaurante" : "global"}
+                  {mpStatus.per_restaurant_updated_at && mpStatus.webhook_secret_source === "per_restaurant" && (
+                    <> · {new Date(mpStatus.per_restaurant_updated_at).toLocaleString()}</>
+                  )}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Generá una nueva clave en el panel de Mercado Pago y pegala acá. Se guarda cifrada con
+              AES-GCM en la base y se registra en auditoría. Nunca la mostramos de vuelta.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Nueva clave</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={rotateForm.secret}
+                  onChange={(e) => setRotateForm({ ...rotateForm, secret: e.target.value })}
+                  placeholder="Mín. 16 caracteres"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirmar clave</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={rotateForm.confirm}
+                  onChange={(e) => setRotateForm({ ...rotateForm, confirm: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Motivo (opcional)</Label>
+                <Input
+                  value={rotateForm.note}
+                  maxLength={500}
+                  placeholder="Ej: rotación trimestral"
+                  onChange={(e) => setRotateForm({ ...rotateForm, note: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={rotateSecret} disabled={rotating || !rotateForm.secret}>
+                <KeyRound className="h-4 w-4" /> Rotar clave
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-3 flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Historial de rotaciones</h3>
+            </div>
+            {rotations.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aún no hay rotaciones registradas.</p>
+            ) : (
+              <div className="space-y-2">
+                {rotations.map((row) => (
+                  <div key={row.id} className="flex items-start justify-between rounded-lg border bg-muted/30 p-3 text-sm">
+                    <div>
+                      <div className="font-medium">{new Date(row.created_at).toLocaleString()}</div>
+                      {row.note && <div className="text-xs text-muted-foreground">{row.note}</div>}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {row.rotated_by === user?.id ? "vos" : row.rotated_by.slice(0, 8)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       )}

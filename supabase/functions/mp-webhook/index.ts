@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { decryptSecret, pgByteaToUint8 } from "../_shared/integrationSecrets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,17 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
-async function verifyMpSignature(req: Request, rawBody: string, dataId: string | null): Promise<boolean> {
-  const secret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-  if (!secret) {
-    console.error("MERCADOPAGO_WEBHOOK_SECRET not configured");
-    return false;
-  }
+async function verifyMpSignature(
+  secret: string,
+  req: Request,
+  rawBody: string,
+  dataId: string | null,
+): Promise<boolean> {
   const sigHeader = req.headers.get("x-signature");
   const requestId = req.headers.get("x-request-id");
   if (!sigHeader || !requestId) return false;
 
-  // x-signature: "ts=1704067200,v1=abcdef..."
   const parts = Object.fromEntries(
     sigHeader.split(",").map((p) => {
       const [k, ...v] = p.trim().split("=");
@@ -27,8 +27,6 @@ async function verifyMpSignature(req: Request, rawBody: string, dataId: string |
   const v1 = parts["v1"];
   if (!ts || !v1) return false;
 
-  // Manifest per MP docs: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
-  // Fall back to raw body if data.id missing (some notification types).
   const manifest = dataId
     ? `id:${dataId};request-id:${requestId};ts:${ts};`
     : `request-id:${requestId};ts:${ts};${rawBody}`;
@@ -59,25 +57,18 @@ Deno.serve(async (req) => {
     const rawBody = await req.text();
     const body = rawBody ? JSON.parse(rawBody) : {};
 
-    // MP sends either { type, data: { id } } or query params (?type=payment&data.id=...)
     const type = body?.type ?? body?.action?.split(".")[0] ?? url.searchParams.get("type");
     const paymentId =
       body?.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id");
 
-    // Verify HMAC signature before doing anything else
-    const ok = await verifyMpSignature(req, rawBody, paymentId ? String(paymentId) : null);
-    if (!ok) {
-      return json({ error: "Invalid signature" }, 401);
-    }
+    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    if (!accessToken) return json({ error: "MP no configurado" }, 500);
 
+    // Fetch payment first so we can resolve the restaurant and use its per-restaurant secret.
     if (type !== "payment" || !paymentId) {
       return json({ ok: true, ignored: true });
     }
 
-    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    if (!accessToken) return json({ error: "MP no configurado" }, 500);
-
-    // Fetch payment details from MP
     const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -96,26 +87,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const mpRef = String(payment.id);
-    const status = payment.status === "approved" ? "approved"
-      : payment.status === "rejected" ? "rejected"
-      : payment.status === "refunded" ? "refunded"
-      : "pending";
-
-    // Idempotency guard #1: dedicated event log keyed by MP payment_id.
-    // First writer wins; duplicate deliveries short-circuit here.
-    const { error: evtErr } = await admin
-      .from("mp_webhook_events")
-      .insert({ payment_id: mpRef, order_id: orderId, status, raw: payment });
-    if (evtErr) {
-      // 23505 = unique_violation → already processed
-      if ((evtErr as { code?: string }).code === "23505") {
-        return json({ ok: true, already: true });
-      }
-      console.error("event log insert error", evtErr);
-      return json({ error: "event log error" }, 500);
-    }
-
     const { data: order } = await admin
       .from("orders")
       .select("id, restaurant_id, branch_id, status, total")
@@ -123,7 +94,45 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!order) return json({ ok: true, ignored: true });
 
-    // Find an open cash session on the order's branch (optional link)
+    // Resolve signature secret: per-restaurant override wins, env fallback otherwise.
+    let secret: string | null = null;
+    const { data: row } = await admin
+      .from("restaurant_integration_secrets")
+      .select("ciphertext, iv")
+      .eq("restaurant_id", order.restaurant_id)
+      .eq("provider", "mercadopago_webhook")
+      .maybeSingle();
+    if (row?.ciphertext && row?.iv) {
+      try {
+        secret = await decryptSecret(pgByteaToUint8(row.ciphertext), pgByteaToUint8(row.iv));
+      } catch (e) {
+        console.error("decrypt error", e);
+      }
+    }
+    if (!secret) secret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") ?? null;
+    if (!secret) return json({ error: "Signing secret not configured" }, 401);
+
+    const ok = await verifyMpSignature(secret, req, rawBody, paymentId ? String(paymentId) : null);
+    if (!ok) return json({ error: "Invalid signature" }, 401);
+
+    const mpRef = String(payment.id);
+    const status = payment.status === "approved" ? "approved"
+      : payment.status === "rejected" ? "rejected"
+      : payment.status === "refunded" ? "refunded"
+      : "pending";
+
+    // Idempotency guard #1: dedicated event log keyed by MP payment_id.
+    const { error: evtErr } = await admin
+      .from("mp_webhook_events")
+      .insert({ payment_id: mpRef, order_id: orderId, status, raw: payment });
+    if (evtErr) {
+      if ((evtErr as { code?: string }).code === "23505") {
+        return json({ ok: true, already: true });
+      }
+      console.error("event log insert error", evtErr);
+      return json({ error: "event log error" }, 500);
+    }
+
     let cashSessionId: string | null = null;
     if (order.branch_id) {
       const { data: s } = await admin
@@ -146,7 +155,6 @@ Deno.serve(async (req) => {
       notes: `MP ${payment.status}${payment.status_detail ? ` · ${payment.status_detail}` : ""}`,
     }, { onConflict: "method,reference" });
 
-    // Update order payment_status, and order status to paid only when approved
     const orderPatch: Record<string, string> = { payment_status: status };
     if (status === "approved" && order.status !== "paid") {
       orderPatch.status = "paid";

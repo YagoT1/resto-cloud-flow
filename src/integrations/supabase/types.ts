@@ -168,6 +168,38 @@ export type Database = {
           },
         ]
       }
+      mp_secret_rotations: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          restaurant_id: string
+          rotated_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          restaurant_id: string
+          rotated_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          restaurant_id?: string
+          rotated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mp_secret_rotations_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mp_webhook_events: {
         Row: {
           created_at: string
@@ -507,6 +539,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_integration_secrets: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          id: string
+          iv: string
+          provider: string
+          restaurant_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          id?: string
+          iv: string
+          provider: string
+          restaurant_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          id?: string
+          iv?: string
+          provider?: string
+          restaurant_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_integration_secrets_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
