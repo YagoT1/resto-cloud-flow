@@ -1,7 +1,8 @@
 // Diagnostic endpoint: reports whether the MP webhook secret is configured
-// and performs a self-test of the HMAC-SHA256 signature computation used by
-// mp-webhook. Never returns the secret value.
+// (per-restaurant override or global env) and performs an HMAC self-test.
+// Never returns the secret value itself.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { decryptSecret, pgByteaToUint8 } from "../_shared/integrationSecrets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,29 +25,49 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: claims, error: authErr } = await supabase.auth.getClaims(token);
     if (authErr || !claims?.claims) return json({ error: "Unauthorized" }, 401);
+    const userId = claims.claims.sub as string;
 
-    // Only owners/managers can view diagnostic info
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const { data: prof } = await admin.from("profiles")
-      .select("restaurant_id").eq("id", claims.claims.sub).maybeSingle();
+      .select("restaurant_id").eq("id", userId).maybeSingle();
     if (!prof?.restaurant_id) return json({ error: "Forbidden" }, 403);
+    const restaurantId = prof.restaurant_id as string;
     const { data: role } = await admin.from("user_roles")
-      .select("role").eq("user_id", claims.claims.sub)
-      .eq("restaurant_id", prof.restaurant_id)
+      .select("role").eq("user_id", userId)
+      .eq("restaurant_id", restaurantId)
       .in("role", ["owner", "manager"]).maybeSingle();
     if (!role) return json({ error: "Forbidden" }, 403);
 
-    const secret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-    const mpToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/mp-webhook`;
+    // Determine which secret would be used at verification time.
+    let secret: string | null = null;
+    let source: "per_restaurant" | "env" | null = null;
+    const { data: row } = await admin
+      .from("restaurant_integration_secrets")
+      .select("ciphertext, iv, updated_at, updated_by")
+      .eq("restaurant_id", restaurantId)
+      .eq("provider", "mercadopago_webhook")
+      .maybeSingle();
+    if (row?.ciphertext && row?.iv) {
+      try {
+        secret = await decryptSecret(pgByteaToUint8(row.ciphertext), pgByteaToUint8(row.iv));
+        source = "per_restaurant";
+      } catch (e) {
+        console.error("decrypt error", e);
+      }
+    }
+    if (!secret) {
+      const env = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+      if (env) {
+        secret = env;
+        source = "env";
+      }
+    }
 
     let signatureSelfTest = false;
     if (secret) {
-      // Compute an HMAC over a canonical fixed manifest and re-verify it,
-      // proving the runtime can produce the same signature MP would send.
       const manifest = "id:TEST;request-id:TEST;ts:1700000000;";
       const key = await crypto.subtle.importKey(
         "raw",
@@ -62,9 +83,11 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      webhook_url: webhookUrl,
+      webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mp-webhook`,
       webhook_secret_configured: Boolean(secret),
-      access_token_configured: Boolean(mpToken),
+      webhook_secret_source: source,
+      per_restaurant_updated_at: row?.updated_at ?? null,
+      access_token_configured: Boolean(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")),
       signature_self_test: signatureSelfTest,
     });
   } catch (e) {
