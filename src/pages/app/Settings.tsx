@@ -27,10 +27,18 @@ export default function Settings() {
   const [mpStatus, setMpStatus] = useState<{
     webhook_url: string;
     webhook_secret_configured: boolean;
+    webhook_secret_source: "per_restaurant" | "env" | null;
+    per_restaurant_updated_at: string | null;
     access_token_configured: boolean;
     signature_self_test: boolean;
   } | null>(null);
   const [mpLoading, setMpLoading] = useState(false);
+  const [rotateForm, setRotateForm] = useState({ secret: "", confirm: "", note: "" });
+  const [rotating, setRotating] = useState(false);
+  const [rotations, setRotations] = useState<Array<{
+    id: string; created_at: string; note: string | null; rotated_by: string;
+    profiles?: { full_name: string | null; email: string | null } | null;
+  }>>([]);
   const canManage = roles.includes("owner") || roles.includes("manager");
 
   const loadMpStatus = async () => {
@@ -39,6 +47,36 @@ export default function Settings() {
     setMpLoading(false);
     if (error) return toast.error("No se pudo consultar el estado de Mercado Pago");
     setMpStatus(data as typeof mpStatus);
+  };
+
+  const loadRotations = async () => {
+    if (!profile?.restaurant_id) return;
+    const { data } = await supabase
+      .from("mp_secret_rotations")
+      .select("id, created_at, note, rotated_by")
+      .eq("restaurant_id", profile.restaurant_id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setRotations(data ?? []);
+  };
+
+  const rotateSecret = async () => {
+    if (rotateForm.secret.length < 16) {
+      return toast.error("La clave debe tener al menos 16 caracteres");
+    }
+    if (rotateForm.secret !== rotateForm.confirm) {
+      return toast.error("Las claves no coinciden");
+    }
+    setRotating(true);
+    const { error } = await supabase.functions.invoke("mp-set-webhook-secret", {
+      body: { secret: rotateForm.secret, note: rotateForm.note || null },
+    });
+    setRotating(false);
+    if (error) return toast.error("No se pudo rotar la clave");
+    toast.success("Clave actualizada correctamente");
+    setRotateForm({ secret: "", confirm: "", note: "" });
+    loadMpStatus();
+    loadRotations();
   };
 
   const load = async () => {
