@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Save, ExternalLink, Building2, User as UserIcon, Link2 } from "lucide-react";
+import { Save, ExternalLink, Building2, User as UserIcon, Link2, Copy, CheckCircle2, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface Restaurant {
@@ -24,7 +24,22 @@ export default function Settings() {
   const [restoForm, setRestoForm] = useState({ name: "", logo_url: "" });
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
   const [saving, setSaving] = useState(false);
+  const [mpStatus, setMpStatus] = useState<{
+    webhook_url: string;
+    webhook_secret_configured: boolean;
+    access_token_configured: boolean;
+    signature_self_test: boolean;
+  } | null>(null);
+  const [mpLoading, setMpLoading] = useState(false);
   const canManage = roles.includes("owner") || roles.includes("manager");
+
+  const loadMpStatus = async () => {
+    setMpLoading(true);
+    const { data, error } = await supabase.functions.invoke("mp-webhook-status");
+    setMpLoading(false);
+    if (error) return toast.error("No se pudo consultar el estado de Mercado Pago");
+    setMpStatus(data as typeof mpStatus);
+  };
 
   const load = async () => {
     if (!profile?.restaurant_id) return;
@@ -40,6 +55,7 @@ export default function Settings() {
   };
 
   useEffect(() => { if (profile && user) load(); /* eslint-disable-next-line */ }, [profile?.restaurant_id, user?.id]);
+  useEffect(() => { if (canManage) loadMpStatus(); /* eslint-disable-next-line */ }, [canManage]);
 
   const saveRestaurant = async () => {
     if (!r) return;
@@ -138,16 +154,72 @@ export default function Settings() {
         </div>
       </Card>
 
+      {canManage && (
+        <Card className="mt-6 p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Mercado Pago · Webhook</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Copiá esta URL en el panel de Mercado Pago (Tus integraciones → Webhooks) y pegá allí la misma
+            clave secreta que guardaste en tu backend. Validamos cada notificación con HMAC-SHA256; las
+            firmas inválidas se rechazan con 401.
+          </p>
+
+          <div className="mt-4 space-y-2">
+            <Label>URL de notificación</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input readOnly value={mpStatus?.webhook_url ?? ""} className="flex-1 font-mono text-xs" />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (!mpStatus?.webhook_url) return;
+                  navigator.clipboard.writeText(mpStatus.webhook_url);
+                  toast.success("URL copiada");
+                }}
+                disabled={!mpStatus?.webhook_url}
+              >
+                <Copy className="h-4 w-4" /> Copiar
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <StatusRow
+              label="Access Token configurado"
+              ok={!!mpStatus?.access_token_configured}
+            />
+            <StatusRow
+              label="Clave secreta del webhook configurada"
+              ok={!!mpStatus?.webhook_secret_configured}
+            />
+            <StatusRow
+              label="Validación de firma HMAC funcionando"
+              ok={!!mpStatus?.signature_self_test}
+            />
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              La clave secreta se guarda de forma cifrada en el backend. Nunca se expone al navegador.
+            </p>
+            <Button variant="ghost" size="sm" onClick={loadMpStatus} disabled={mpLoading}>
+              <RefreshCw className={`h-4 w-4 ${mpLoading ? "animate-spin" : ""}`} /> Revalidar
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Card className="mt-6 p-6">
         <div className="mb-4 flex items-center gap-2">
           <Link2 className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Integraciones</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Próximamente: Mercado Pago, WhatsApp Business, impresoras térmicas y facturación electrónica AFIP.
+          Próximamente: WhatsApp Business, impresoras térmicas y facturación electrónica AFIP.
         </p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {["Mercado Pago", "WhatsApp Business", "Impresora térmica", "AFIP Facturación"].map((x) => (
+          {["WhatsApp Business", "Impresora térmica", "AFIP Facturación"].map((x) => (
             <div key={x} className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 text-sm">
               <span>{x}</span>
               <span className="text-xs text-muted-foreground">Próximamente</span>
@@ -155,6 +227,23 @@ export default function Settings() {
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function StatusRow({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 text-sm">
+      <span>{label}</span>
+      {ok ? (
+        <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+          <CheckCircle2 className="h-4 w-4" /> OK
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+          <XCircle className="h-4 w-4" /> Falta
+        </span>
+      )}
     </div>
   );
 }
