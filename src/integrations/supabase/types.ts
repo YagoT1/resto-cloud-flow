@@ -546,6 +546,47 @@ export type Database = {
           },
         ]
       }
+      restaurant_integration_secrets: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          id: string
+          iv: string
+          provider: string
+          restaurant_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          id?: string
+          iv: string
+          provider: string
+          restaurant_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          id?: string
+          iv?: string
+          provider?: string
+          restaurant_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_integration_secrets_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_tables: {
         Row: {
           branch_id: string
