@@ -230,3 +230,20 @@ export default function Settings() {
     </div>
   );
 }
+
+function StatusRow({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3 text-sm">
+      <span>{label}</span>
+      {ok ? (
+        <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+          <CheckCircle2 className="h-4 w-4" /> OK
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+          <XCircle className="h-4 w-4" /> Falta
+        </span>
+      )}
+    </div>
+  );
+}
