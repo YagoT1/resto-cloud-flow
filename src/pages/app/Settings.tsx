@@ -60,6 +60,33 @@ export default function Settings() {
     setRotations(data ?? []);
   };
 
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean; message: string; source: string | null; at: string;
+  } | null>(null);
+
+  const runHmacTest = async () => {
+    setTesting(true);
+    const { data, error } = await supabase.functions.invoke("mp-webhook-status");
+    setTesting(false);
+    const at = new Date().toLocaleString();
+    if (error || !data) {
+      setTestResult({ ok: false, message: "No se pudo contactar al servicio de verificación.", source: null, at });
+      return;
+    }
+    const s = data as NonNullable<typeof mpStatus>;
+    setMpStatus(s);
+    const src = s.webhook_secret_source === "per_restaurant" ? "por restaurante"
+      : s.webhook_secret_source === "env" ? "global" : null;
+    if (!s.webhook_secret_configured) {
+      setTestResult({ ok: false, message: "No hay clave secreta configurada.", source: src, at });
+    } else if (s.signature_self_test) {
+      setTestResult({ ok: true, message: "La firma HMAC-SHA256 se generó y verificó correctamente.", source: src, at });
+    } else {
+      setTestResult({ ok: false, message: "La verificación de firma falló. Revisá la clave guardada.", source: src, at });
+    }
+  };
+
   const rotateSecret = async () => {
     if (rotateForm.secret.length < 16) {
       return toast.error("La clave debe tener al menos 16 caracteres");
@@ -75,8 +102,8 @@ export default function Settings() {
     if (error) return toast.error("No se pudo rotar la clave");
     toast.success("Clave actualizada correctamente");
     setRotateForm({ secret: "", confirm: "", note: "" });
-    loadMpStatus();
     loadRotations();
+    await runHmacTest();
   };
 
   const load = async () => {
@@ -294,11 +321,39 @@ export default function Settings() {
                 />
               </div>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={runHmacTest} disabled={testing || rotating}>
+                <ShieldCheck className={`h-4 w-4 ${testing ? "animate-pulse" : ""}`} />
+                {testing ? "Probando..." : "Probar firma HMAC"}
+              </Button>
               <Button onClick={rotateSecret} disabled={rotating || !rotateForm.secret}>
-                <KeyRound className="h-4 w-4" /> Rotar clave
+                <KeyRound className="h-4 w-4" /> {rotating ? "Guardando..." : "Rotar clave"}
               </Button>
             </div>
+            {testResult && (
+              <div
+                role="status"
+                aria-live="polite"
+                className={`mt-4 flex items-start gap-3 rounded-lg border p-3 text-sm ${
+                  testResult.ok
+                    ? "border-success/40 bg-success/10"
+                    : "border-destructive/40 bg-destructive/10"
+                }`}
+              >
+                {testResult.ok
+                  ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
+                <div>
+                  <div className="font-medium">
+                    {testResult.ok ? "Auto-test aprobado" : "Auto-test fallido"}
+                  </div>
+                  <div className="text-muted-foreground">{testResult.message}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {testResult.source && <>Clave: {testResult.source} · </>}{testResult.at}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 border-t pt-6">
