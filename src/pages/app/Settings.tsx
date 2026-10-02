@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Save, ExternalLink, Building2, User as UserIcon, Link2, Copy, CheckCircle2, XCircle, RefreshCw, ShieldCheck, KeyRound, History } from "lucide-react";
+import { Save, ExternalLink, Building2, User as UserIcon, Link2, Copy, CheckCircle2, XCircle, RefreshCw, ShieldCheck, KeyRound, History, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
 interface Restaurant {
@@ -378,6 +378,46 @@ export default function Settings() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="mt-6 border-t pt-6">
+            <div className="mb-3 flex items-center gap-2">
+              <ListChecks className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Guía: validar la integración de punta a punta</h3>
+            </div>
+            <ol className="list-decimal space-y-3 pl-5 text-sm text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">Configurá el webhook en Mercado Pago.</span>{" "}
+                En el panel de desarrolladores (Tus integraciones → Webhooks), pegá la URL de notificación
+                de arriba, elegí el evento <span className="font-mono text-xs">Pagos</span> y guardá la misma
+                clave secreta que rotaste acá.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Verificá la firma.</span>{" "}
+                Usá el botón "Probar firma HMAC": si el auto-test sale en verde, el backend está validando
+                las firmas con tu clave actual.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Enviá un pago de prueba.</span>{" "}
+                Desde el panel de Mercado Pago usá "Simular notificación" / "Probar webhook" contra la URL,
+                o generá un pago real con las tarjetas de prueba en modo sandbox.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Comprobá el pedido.</span>{" "}
+                Andá a la sección Pedidos: el pedido asociado debe mostrar el estado de pago actualizado
+                (Aprobado / Pendiente / Rechazado) apenas llega la notificación.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Mirá cocina en tiempo real.</span>{" "}
+                Con la pantalla de Cocina (KDS) abierta, el pedido debe aparecer o cambiar de estado sin
+                recargar la página. Si no se mueve, revisá que Realtime esté activo.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Reintentos y duplicados.</span>{" "}
+                Si Mercado Pago reintenta la misma notificación, el sistema la detecta por payment_id y no
+                duplica el registro. Los fallos de firma quedan visibles como alertas para Dueños y Gerentes.
+              </li>
+            </ol>
           </div>
         </Card>
       )}
